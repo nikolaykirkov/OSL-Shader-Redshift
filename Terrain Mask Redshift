@@ -21,14 +21,12 @@ shader TerrainMask(
     output color Out = color(1.0)
 )
 {
-    // Define PI
-    float PI = 3.141592653589793;
-
     // Calculate altitude mask
     float altitudeMask = 1.0;
+    point objP = transform("object", P);
     if (EnableAltitudeMasking) {
-        float noise = NoiseHeight * noise("perlin", P / NoiseScale);
-        float altitude = P.y + noise;
+        float noise = NoiseHeight * noise("perlin", objP / NoiseScale);
+        float altitude = objP.y + noise;
         altitudeMask = smoothstep(MinAltitude - SoftenMinAltitude, MinAltitude + SoftenMinAltitude, altitude) *
                        (1.0 - smoothstep(MaxAltitude - SoftenMaxAltitude, MaxAltitude + SoftenMaxAltitude, altitude));
     }
