@@ -1,0 +1,63 @@
+shader TerrainMask(
+    // Altitude Masking Parameters
+    int EnableAltitudeMasking = 1 [[ string label = "Enable Altitude Masking", string widget = "checkBox" ]],
+    float MinAltitude = -1000.0 [[ string label = "Min Altitude (cm)", float min = -10000, float max = 10000 ]],
+    float MaxAltitude = 1000.0 [[ string label = "Max Altitude (cm)", float min = -10000, float max = 10000 ]],
+    float SoftenMinAltitude = 0.0 [[ string label = "Soften Min (cm)", float min = 0.0, float max = 100 ]],
+    float SoftenMaxAltitude = 0.0 [[ string label = "Soften Max (cm)", float min = 0.0, float max = 100 ]],
+    float NoiseHeight = 0.0 [[ string label = "Noise Height (cm)", float min = -10000, float max = 10000 ]],
+    float NoiseScale = 100.0 [[ string label = "Noise Scale (%)", float min = 0.0, float max = 1000.0 ]],
+
+    // Slope Masking Parameters
+    int EnableSlopeMasking = 1 [[ string label = "Enable Slope Masking", string widget = "checkBox" ]],
+    float MinSlope = 0.0 [[ string label = "Min Slope (degrees)" ]],
+    float MaxSlope = 45.0 [[ string label = "Max Slope (degrees)" ]],
+    float SoftenMinSlope = 0.0 [[ string label = "Soften Min (%)", float min = 0.0, float max = 100 ]],
+    float SoftenMaxSlope = 0.2 [[ string label = "Soften Max (%)", float min = 0.0, float max = 100 ]],
+
+    // General Parameters
+    int Invert = 0 [[ string label = "Invert", string widget = "checkBox" ]],
+
+    output color Out = color(1.0)
+)
+{
+    // Define PI
+    float PI = 3.141592653589793;
+
+    // Calculate altitude mask
+    float altitudeMask = 1.0;
+    if (EnableAltitudeMasking) {
+        float noise = NoiseHeight * noise("perlin", P / NoiseScale);
+        float altitude = P.y + noise;
+        altitudeMask = smoothstep(MinAltitude - SoftenMinAltitude, MinAltitude + SoftenMinAltitude, altitude) *
+                       (1.0 - smoothstep(MaxAltitude - SoftenMaxAltitude, MaxAltitude + SoftenMaxAltitude, altitude));
+    }
+
+    // Calculate slope mask
+    float slopeMask = 1.0;
+    if (EnableSlopeMasking) {
+        float minSlopeRad = radians(MinSlope);
+        float maxSlopeRad = radians(MaxSlope);
+
+        vector directionVector = vector(0, 1, 0);
+        float slopeValue = acos(dot(normalize(N), directionVector));
+
+        // Adjust the softening factor for better control
+        float softenMinSlopeAdj = minSlopeRad + SoftenMinSlope * (maxSlopeRad - minSlopeRad) / 100.0;
+        float softenMaxSlopeAdj = maxSlopeRad - SoftenMaxSlope * (maxSlopeRad - minSlopeRad) / 100.0;
+
+        slopeMask = smoothstep(minSlopeRad, softenMinSlopeAdj, slopeValue) *
+                    (1.0 - smoothstep(softenMaxSlopeAdj, maxSlopeRad, slopeValue));
+    }
+
+    // Combine altitude and slope masks
+    float combinedMask = altitudeMask * slopeMask;
+
+    // Invert mask if needed
+    if (Invert) {
+        combinedMask = 1.0 - combinedMask;
+    }
+
+    // Output the final mask as a grayscale value
+    Out = color(combinedMask);
+}
